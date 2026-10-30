@@ -95,9 +95,41 @@ class Enrollment(models.Model):
     rating = models.FloatField(default=5.0)
 
 
-# One enrollment could have multiple submission
-# One submission could have multiple choices
-# One choice could belong to multiple submissions
-#class Submission(models.Model):
-#    enrollment = models.ForeignKey(Enrollment, on_delete=models.CASCADE)
-#    choices = models.ManyToManyField(Choice)
+class Question(models.Model):
+    """A weighted multiple-choice question attached to one course lesson."""
+
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE)
+    content = models.TextField()
+    grade = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        ordering = ("lesson__order", "id")
+
+    def __str__(self):
+        return self.content
+
+
+class Choice(models.Model):
+    """A possible answer for a question."""
+
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    content = models.CharField(max_length=500)
+    is_correct = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.content
+
+
+class Submission(models.Model):
+    """One learner's saved answers for an enrollment attempt."""
+
+    enrollment = models.ForeignKey(
+        Enrollment,
+        on_delete=models.CASCADE,
+        related_name="submissions",
+    )
+    choices = models.ManyToManyField(Choice, blank=True, related_name="submissions")
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.enrollment.user.username} — {self.enrollment.course.name} ({self.pk})"

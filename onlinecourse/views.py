@@ -1,58 +1,54 @@
-from django.shortcuts import render
-from django.http import HttpResponseRedirect
-# <HINT> Import any new Models here
-from .models import Course, Enrollment
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.shortcuts import get_object_or_404, render, redirect
+from django.db import transaction
+from django.http import HttpResponseBadRequest, HttpResponseForbidden, HttpResponseRedirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views import generic
-from django.contrib.auth import login, logout, authenticate
+from django.views.decorators.http import require_POST
 import logging
-# Get an instance of a logger
+
+from .models import Choice, Course, Enrollment, Question, Submission
+
 logger = logging.getLogger(__name__)
-# Create your views here.
+PASSING_SCORE_PERCENT = 80
 
 
 def registration_request(request):
     context = {}
     if request.method == 'GET':
         return render(request, 'onlinecourse/user_registration_bootstrap.html', context)
-    elif request.method == 'POST':
-        # Check if user exists
+    if request.method == 'POST':
         username = request.POST['username']
         password = request.POST['psw']
         first_name = request.POST['firstname']
         last_name = request.POST['lastname']
-        user_exist = False
-        try:
-            User.objects.get(username=username)
-            user_exist = True
-        except:
-            logger.error("New user")
-        if not user_exist:
-            user = User.objects.create_user(username=username, first_name=first_name, last_name=last_name,
-                                            password=password)
-            login(request, user)
-            return redirect("onlinecourse:index")
-        else:
-            context['message'] = "User already exists."
+        if User.objects.filter(username=username).exists():
+            context['message'] = 'User already exists.'
             return render(request, 'onlinecourse/user_registration_bootstrap.html', context)
+        user = User.objects.create_user(
+            username=username,
+            first_name=first_name,
+            last_name=last_name,
+            password=password,
+        )
+        login(request, user)
+        return redirect('onlinecourse:index')
 
 
 def login_request(request):
     context = {}
-    if request.method == "POST":
-        username = request.POST['username']
-        password = request.POST['psw']
-        user = authenticate(username=username, password=password)
+    if request.method == 'POST':
+        user = authenticate(
+            username=request.POST['username'],
+            password=request.POST['psw'],
+        )
         if user is not None:
             login(request, user)
             return redirect('onlinecourse:index')
-        else:
-            context['message'] = "Invalid username or password."
-            return render(request, 'onlinecourse/user_login_bootstrap.html', context)
-    else:
-        return render(request, 'onlinecourse/user_login_bootstrap.html', context)
+        context['message'] = 'Invalid username or password.'
+    return render(request, 'onlinecourse/user_login_bootstrap.html', context)
 
 
 def logout_request(request):
@@ -61,16 +57,9 @@ def logout_request(request):
 
 
 def check_if_enrolled(user, course):
-    is_enrolled = False
-    if user.id is not None:
-        # Check if user enrolled
-        num_results = Enrollment.objects.filter(user=user, course=course).count()
-        if num_results > 0:
-            is_enrolled = True
-    return is_enrolled
+    return bool(user.is_authenticated and Enrollment.objects.filter(user=user, course=course).exists())
 
 
-# CourseListView
 class CourseListView(generic.ListView):
     template_name = 'onlinecourse/course_list_bootstrap.html'
     context_object_name = 'course_list'
@@ -79,58 +68,123 @@ class CourseListView(generic.ListView):
         user = self.request.user
         courses = Course.objects.order_by('-total_enrollment')[:10]
         for course in courses:
-            if user.is_authenticated:
-                course.is_enrolled = check_if_enrolled(user, course)
+            course.is_enrolled = check_if_enrolled(user, course)
         return courses
 
 
 class CourseDetailView(generic.DetailView):
     model = Course
-    template_name = 'onlinecourse/course_detail_bootstrap.html'
+    template_name = 'onlinecourse/course_details_bootstrap.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        course = self.object
+        user = self.request.user
+        context['lessons'] = course.lesson_set.prefetch_related(
+            'question_set__choice_set'
+        ).order_by('order', 'id')
+        context['has_questions'] = Question.objects.filter(lesson__course=course).exists()
+        context['is_enrolled'] = check_if_enrolled(user, course)
+        return context
 
 
 def enroll(request, course_id):
     course = get_object_or_404(Course, pk=course_id)
     user = request.user
-
-    is_enrolled = check_if_enrolled(user, course)
-    if not is_enrolled and user.is_authenticated:
-        # Create an enrollment
+    if user.is_authenticated and not check_if_enrolled(user, course):
         Enrollment.objects.create(user=user, course=course, mode='honor')
         course.total_enrollment += 1
-        course.save()
-
-    return HttpResponseRedirect(reverse(viewname='onlinecourse:course_details', args=(course.id,)))
-
-
-# <HINT> Create a submit view to create an exam submission record for a course enrollment,
-# you may implement it based on following logic:
-         # Get user and course object, then get the associated enrollment object created when the user enrolled the course
-         # Create a submission object referring to the enrollment
-         # Collect the selected choices from exam form
-         # Add each selected choice object to the submission object
-         # Redirect to show_exam_result with the submission id
-#def submit(request, course_id):
+        course.save(update_fields=['total_enrollment'])
+    return HttpResponseRedirect(reverse('onlinecourse:course_details', args=(course.id,)))
 
 
-# An example method to collect the selected choices from the exam form from the request object
-def extract_answers(request):
-   submitted_anwsers = []
-   for key in request.POST:
-       if key.startswith('choice'):
-           value = request.POST[key]
-           choice_id = int(value)
-           submitted_anwsers.append(choice_id)
-   return submitted_anwsers
+@login_required
+@require_POST
+@transaction.atomic
+def submit(request, course_id):
+    """Validate and save the signed-in learner's answers for a course exam."""
+    course = get_object_or_404(Course, pk=course_id)
+    enrollment = Enrollment.objects.filter(user=request.user, course=course).first()
+    if enrollment is None:
+        return HttpResponseForbidden('Enroll in this course before submitting its exam.')
+
+    questions = list(
+        Question.objects.filter(lesson__course=course).order_by('lesson__order', 'id')
+    )
+    if not questions:
+        return HttpResponseBadRequest('This course does not have an exam yet.')
+
+    expected_fields = {f'choice_{question.id}' for question in questions}
+    submitted_fields = {key for key in request.POST if key.startswith('choice_')}
+    if submitted_fields - expected_fields:
+        return HttpResponseBadRequest('The submission contains an unknown question.')
+
+    selected_choices = []
+    for question in questions:
+        values = request.POST.getlist(f'choice_{question.id}')
+        if len(values) > 1:
+            return HttpResponseBadRequest('Choose at most one answer for each question.')
+        if not values or not values[0]:
+            continue
+        choice = Choice.objects.filter(pk=values[0], question=question).first()
+        if choice is None:
+            return HttpResponseBadRequest('An answer does not belong to its question.')
+        selected_choices.append(choice)
+
+    submission = Submission.objects.create(enrollment=enrollment)
+    submission.choices.set(selected_choices)
+    return redirect(
+        'onlinecourse:show_exam_result',
+        course_id=course.id,
+        submission_id=submission.id,
+    )
 
 
-# <HINT> Create an exam result view to check if learner passed exam and show their question results and result for each question,
-# you may implement it based on the following logic:
-        # Get course and submission based on their ids
-        # Get the selected choice ids from the submission record
-        # For each selected choice, check if it is a correct answer or not
-        # Calculate the total score
-#def show_exam_result(request, course_id, submission_id):
+@login_required
+def show_exam_result(request, course_id, submission_id):
+    """Show a saved submission's weighted score and per-question feedback."""
+    course = get_object_or_404(Course, pk=course_id)
+    submission = get_object_or_404(
+        Submission.objects.select_related('enrollment__user', 'enrollment__course'),
+        pk=submission_id,
+        enrollment__user=request.user,
+        enrollment__course=course,
+    )
+    questions = list(
+        Question.objects.filter(lesson__course=course)
+        .order_by('lesson__order', 'id')
+        .prefetch_related('choice_set')
+    )
+    selected_by_question = {
+        choice.question_id: choice
+        for choice in submission.choices.select_related('question')
+    }
 
+    question_results = []
+    score = 0
+    total_score = sum(question.grade for question in questions)
+    for question in questions:
+        selected_choice = selected_by_question.get(question.id)
+        correct_choices = [choice for choice in question.choice_set.all() if choice.is_correct]
+        is_correct = bool(selected_choice and selected_choice.is_correct)
+        if is_correct:
+            score += question.grade
+        question_results.append({
+            'question': question,
+            'selected_choice': selected_choice,
+            'correct_choices': correct_choices,
+            'is_correct': is_correct,
+        })
 
-
+    grade = round((score / total_score) * 100, 1) if total_score else 0
+    context = {
+        'course': course,
+        'submission': submission,
+        'question_results': question_results,
+        'score': score,
+        'total_score': total_score,
+        'grade': grade,
+        'passed': grade >= PASSING_SCORE_PERCENT and total_score > 0,
+        'passing_score_percent': PASSING_SCORE_PERCENT,
+    }
+    return render(request, 'onlinecourse/exam_result_bootstrap.html', context)

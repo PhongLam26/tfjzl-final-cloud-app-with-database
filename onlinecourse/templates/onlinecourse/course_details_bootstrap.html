@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>{{ course.name }} | OnlineCourse</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    <style>
+        body { background: #f5f7fb; }
+        .page-shell { max-width: 1080px; }
+        .hero, .lesson-card, .exam-card { border: 0; border-radius: 14px; box-shadow: 0 5px 20px rgba(20, 38, 65, .08); }
+        .hero { background: linear-gradient(120deg, #123b68, #176b87); color: white; }
+        .lesson-number { color: #176b87; font-weight: 700; }
+        .question-card { border: 1px solid #e4eaf2; border-radius: 10px; }
+        .choice-row { cursor: pointer; }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand navbar-dark" style="background:#123b68">
+    <div class="container page-shell">
+        <a class="navbar-brand font-weight-bold" href="{% url 'onlinecourse:index' %}">OnlineCourse</a>
+        <div class="ml-auto text-white">
+            {% if user.is_authenticated %}
+                <span class="mr-3">{{ user.first_name|default:user.username }}</span>
+                <a class="btn btn-sm btn-outline-light" href="{% url 'onlinecourse:logout' %}">Log out</a>
+            {% else %}
+                <a class="btn btn-sm btn-outline-light" href="{% url 'onlinecourse:login' %}">Log in</a>
+                <a class="btn btn-sm btn-light ml-2" href="{% url 'onlinecourse:registration' %}">Sign up</a>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+<main class="container page-shell py-4">
+    <section class="card hero mb-4">
+        <div class="card-body p-4 p-md-5">
+            <div class="small text-uppercase mb-2" style="letter-spacing:.12em;opacity:.8">Course details</div>
+            <h1 class="display-4 h2 font-weight-bold">{{ course.name }}</h1>
+            <p class="lead mb-0">{{ course.description }}</p>
+        </div>
+    </section>
+
+    <div class="row">
+        <section class="col-lg-7 mb-4" aria-labelledby="lessons-heading">
+            <h2 id="lessons-heading" class="h4 mb-3">Lessons</h2>
+            {% for lesson in lessons %}
+                <article class="card lesson-card mb-3">
+                    <div class="card-body p-4">
+                        <div class="lesson-number small text-uppercase">Lesson {{ forloop.counter }}</div>
+                        <h3 class="h5 mt-1">{{ lesson.title }}</h3>
+                        <p class="mb-0 text-muted">{{ lesson.content|linebreaksbr }}</p>
+                    </div>
+                </article>
+            {% empty %}
+                <div class="alert alert-info">Lessons for this course will be added soon.</div>
+            {% endfor %}
+        </section>
+
+        <section class="col-lg-5 mb-4" aria-labelledby="exam-heading">
+            <div class="card exam-card">
+                <div class="card-body p-4">
+                    <div class="small text-uppercase text-info font-weight-bold mb-1">Knowledge check</div>
+                    <h2 id="exam-heading" class="h4">Course assessment</h2>
+                    {% if not user.is_authenticated %}
+                        <p class="text-muted">Log in and enroll in this course to take the assessment.</p>
+                        <a class="btn btn-primary" href="{% url 'onlinecourse:login' %}">Log in to continue</a>
+                    {% elif not is_enrolled %}
+                        <p class="text-muted">Enroll in the course to unlock the assessment.</p>
+                        <a class="btn btn-primary" href="{% url 'onlinecourse:enroll' course.id %}">Enroll in course</a>
+                    {% elif has_questions %}
+                        <p class="text-muted">Choose one answer for each question. You may leave a question unanswered.</p>
+                        <form action="{% url 'onlinecourse:submit' course.id %}" method="post">
+                            {% csrf_token %}
+                            {% for lesson in lessons %}
+                                {% for question in lesson.question_set.all %}
+                                    <fieldset class="question-card p-3 mb-3">
+                                        <legend class="h6 mb-3">{{ forloop.parentloop.counter }}. {{ question.content }} <span class="text-muted small">({{ question.grade }} pt{{ question.grade|pluralize }})</span></legend>
+                                        {% for choice in question.choice_set.all %}
+                                            <label class="choice-row d-flex align-items-start mb-2">
+                                                <input class="mt-1 mr-2" type="radio" name="choice_{{ question.id }}" value="{{ choice.id }}">
+                                                <span>{{ choice.content }}</span>
+                                            </label>
+                                        {% empty %}
+                                            <p class="text-muted small mb-0">No answer options have been added yet.</p>
+                                        {% endfor %}
+                                    </fieldset>
+                                {% endfor %}
+                            {% endfor %}
+                            <button class="btn btn-primary btn-lg btn-block" type="submit">Submit assessment</button>
+                        </form>
+                    {% else %}
+                        <p class="text-muted mb-0">The assessment for this course is not available yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+    </div>
+</main>
+</body>
+</html>

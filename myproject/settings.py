@@ -20,14 +20,18 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'aay0j_9b&ky3a7(8m8il+-1ud(scw12@w5!+5-=gsk6ynzi0ls'
+# Override this value with DJANGO_SECRET_KEY outside local development.
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'local-development-key-change-before-deploying')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', '1').lower() in {'1', 'true', 'yes'}
 
 # <HINT> add your cloud host here
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost,testserver').split(',')
+    if host.strip()
+]
 
 CSRF_TRUSTED_ORIGINS = ['https://*.cognitiveclass.ai']
 
@@ -109,13 +113,14 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Ho_Chi_Minh'
 
 USE_I18N = True
 
-USE_L10N = True
-
 USE_TZ = True
+
+LOGIN_URL = 'onlinecourse:login'
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # Static files (CSS, JavaScript, Images)
