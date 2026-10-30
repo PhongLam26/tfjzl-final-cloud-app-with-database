@@ -5,7 +5,7 @@ This project extends IBM Developer Skills Network's public `tfjzl-final-cloud-ap
 ## Included
 
 - Course list, course details, lessons, login, registration, and enrollment.
-- `Question`, `Choice`, and `Submission` models. A submission belongs to an `Enrollment` and stores selected choices, following the relationship described in the starter's model hints.
+- `Question`, `Choice`, and `Submission` models. A question belongs to a course and uses `question_text`; choices use `choice_text`; a submission belongs to an `Enrollment` and stores selected choices.
 - Admin inlines for lessons, questions, and choices.
 - Authenticated, enrolled learners can submit one radio-button answer per question; unanswered questions receive zero points.
 - Server-side validation rejects choices from a different question and submissions for another course.

@@ -80,7 +80,7 @@ class CourseDetailView(generic.DetailView):
         context = super().get_context_data(**kwargs)
         course = self.object
         user = self.request.user
-        context['has_questions'] = Question.objects.filter(lesson__course=course).exists()
+        context['has_questions'] = Question.objects.filter(course=course).exists()
         context['is_enrolled'] = check_if_enrolled(user, course)
         return context
 
@@ -105,9 +105,7 @@ def submit(request, course_id):
     if enrollment is None:
         return HttpResponseForbidden('Enroll in this course before submitting its exam.')
 
-    questions = list(
-        Question.objects.filter(lesson__course=course).order_by('lesson__order', 'id')
-    )
+    questions = list(Question.objects.filter(course=course).order_by('id'))
     if not questions:
         return HttpResponseBadRequest('This course does not have an exam yet.')
 
@@ -148,13 +146,13 @@ def show_exam_result(request, course_id, submission_id):
         enrollment__course=course,
     )
     questions = list(
-        Question.objects.filter(lesson__course=course)
-        .order_by('lesson__order', 'id')
+        Question.objects.filter(course=course)
+        .order_by('id')
         .prefetch_related('choice_set')
     )
     selected_by_question = {}
     for choice in submission.choices.filter(
-        question__lesson__course=course
+        question__course=course
     ).select_related('question').order_by('id'):
         selected_by_question.setdefault(choice.question_id, []).append(choice)
 

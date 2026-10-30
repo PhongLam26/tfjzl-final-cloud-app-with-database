@@ -25,22 +25,22 @@ class AssessmentTestData(TestCase):
             title='Views', order=1, course=self.course, content='Views handle requests.'
         )
         self.question_one = Question.objects.create(
-            lesson=self.lesson, question='Which is a Python list?', grade=2
+            course=self.course, question_text='Which is a Python list?', grade=2
         )
         self.correct_one = Choice.objects.create(
-            question=self.question_one, choice='[1, 2, 3]', is_correct=True
+            question=self.question_one, choice_text='[1, 2, 3]', is_correct=True
         )
         self.wrong_one = Choice.objects.create(
-            question=self.question_one, choice='{"a": 1}', is_correct=False
+            question=self.question_one, choice_text='{"a": 1}', is_correct=False
         )
         self.question_two = Question.objects.create(
-            lesson=self.second_lesson, question='Which field links model rows many-to-one?', grade=3
+            course=self.course, question_text='Which field links model rows many-to-one?', grade=3
         )
         self.correct_two = Choice.objects.create(
-            question=self.question_two, choice='ForeignKey', is_correct=True
+            question=self.question_two, choice_text='ForeignKey', is_correct=True
         )
         self.wrong_two = Choice.objects.create(
-            question=self.question_two, choice='ManyToManyField', is_correct=False
+            question=self.question_two, choice_text='ManyToManyField', is_correct=False
         )
         self.enrollment = Enrollment.objects.create(
             user=self.user, course=self.course, mode=Enrollment.HONOR
@@ -52,11 +52,15 @@ class AssessmentTestData(TestCase):
 
 class AssessmentModelTests(AssessmentTestData):
     def test_course_lesson_question_choice_relationships(self):
-        self.assertEqual(self.question_one.lesson, self.lesson)
+        self.assertEqual(self.question_one.course, self.course)
         self.assertEqual(self.correct_one.question, self.question_one)
         self.assertEqual(list(self.course.lesson_set.order_by('order')), [self.lesson, self.second_lesson])
-        self.assertEqual(self.lesson.question_set.count(), 1)
+        self.assertEqual(self.course.question_set.count(), 2)
         self.assertEqual(self.question_one.choice_set.count(), 2)
+
+    def test_submission_string_represents_submission_and_enrollment(self):
+        submission = Submission.objects.create(enrollment=self.enrollment)
+        self.assertEqual(str(submission), f'Submission {submission.id} for Enrollment {self.enrollment.id}')
 
     def test_submission_saves_and_retrieves_selected_choices(self):
         submission = Submission.objects.create(enrollment=self.enrollment)
@@ -71,6 +75,7 @@ class AssessmentModelTests(AssessmentTestData):
         self.assertTrue(self.question_one.is_get_score([self.correct_one.id]))
         self.assertFalse(self.question_one.is_get_score([self.wrong_one.id]))
         self.assertFalse(self.question_one.is_get_score([self.correct_one.id, self.wrong_one.id]))
+        self.assertEqual(Question._meta.get_field('grade').default, 50)
 
 
 class CoursePageTests(AssessmentTestData):
@@ -234,5 +239,7 @@ class AssessmentAdminTests(AssessmentTestData):
 
         self.assertEqual(lesson_form.status_code, 200)
         self.assertEqual(question_form.status_code, 200)
-        self.assertContains(lesson_form, 'question_set')
+        course_form = self.client.get(reverse('admin:onlinecourse_course_add'))
+        self.assertEqual(course_form.status_code, 200)
+        self.assertContains(course_form, 'question_set')
         self.assertContains(question_form, 'choice_set')

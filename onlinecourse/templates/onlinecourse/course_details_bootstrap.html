@@ -70,20 +70,18 @@
                         <p class="text-muted">Choose one answer for each question. You may leave a question unanswered.</p>
                         <form action="{% url 'onlinecourse:submit' course.id %}" method="post">
                             {% csrf_token %}
-                            {% for lesson in course.lesson_set.all %}
-                                {% for question in lesson.question_set.all %}
-                                    <fieldset class="question-card p-3 mb-3">
-                                        <legend class="h6 mb-3">{{ forloop.parentloop.counter }}. {{ question.question }} <span class="text-muted small">({{ question.grade }} pt{{ question.grade|pluralize }})</span></legend>
-                                        {% for choice in question.choice_set.all %}
-                                            <label class="choice-row d-flex align-items-start mb-2">
-                                                <input class="mt-1 mr-2" type="radio" name="choice_{{ question.id }}" value="{{ choice.id }}">
-                                                <span>{{ choice.choice }}</span>
-                                            </label>
-                                        {% empty %}
-                                            <p class="text-muted small mb-0">No answer options have been added yet.</p>
-                                        {% endfor %}
-                                    </fieldset>
-                                {% endfor %}
+                            {% for question in course.question_set.all %}
+                                <fieldset class="question-card p-3 mb-3">
+                                    <legend class="h6 mb-3">{{ forloop.counter }}. {{ question.question_text }} <span class="text-muted small">({{ question.grade }} pt{{ question.grade|pluralize }})</span></legend>
+                                    {% for choice in question.choice_set.all %}
+                                        <label class="choice-row d-flex align-items-start mb-2">
+                                            <input class="mt-1 mr-2" type="radio" name="choice_{{ question.id }}" value="{{ choice.id }}">
+                                            <span>{{ choice.choice_text }}</span>
+                                        </label>
+                                    {% empty %}
+                                        <p class="text-muted small mb-0">No answer options have been added yet.</p>
+                                    {% endfor %}
+                                </fieldset>
                             {% endfor %}
                             <button class="btn btn-primary btn-lg btn-block" type="submit">Submit assessment</button>
                         </form>

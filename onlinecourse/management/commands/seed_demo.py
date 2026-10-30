@@ -52,13 +52,13 @@ class Command(BaseCommand):
             (2, 'Secure web forms', 'Protect form submissions and validate input on the server.'),
         ]
         questions = [
-            (0, 'What does len([10, 20, 30]) return?', 2, [
+            ('What does len([10, 20, 30]) return?', 2, [
                 ('3', True), ('2', False), ('An error', False),
             ]),
-            (1, 'Which Django field creates a many-to-one relationship?', 1, [
+            ('Which Django field creates a many-to-one relationship?', 1, [
                 ('ForeignKey', True), ('ManyToManyField', False), ('OneToOneField', False),
             ]),
-            (2, 'What does a CSRF token help protect against?', 3, [
+            ('What does a CSRF token help protect against?', 3, [
                 ('Cross-site request forgery', True), ('Slow database queries', False), ('Weak passwords', False),
             ]),
         ]
@@ -72,16 +72,16 @@ class Command(BaseCommand):
             )
             lessons_by_order[order] = lesson
 
-        for lesson_order, question_text, grade, choice_specs in questions:
+        for question_text, grade, choice_specs in questions:
             question, _ = Question.objects.update_or_create(
-                lesson=lessons_by_order[lesson_order],
-                question=question_text,
+                course=course,
+                question_text=question_text,
                 defaults={'grade': grade},
             )
             for choice_text, is_correct in choice_specs:
                 Choice.objects.update_or_create(
                     question=question,
-                    choice=choice_text,
+                    choice_text=choice_text,
                     defaults={'is_correct': is_correct},
                 )
 

@@ -96,17 +96,17 @@ class Enrollment(models.Model):
 
 
 class Question(models.Model):
-    """A weighted multiple-choice question attached to one course lesson."""
+    """A weighted multiple-choice question attached to one course."""
 
-    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE)
-    question = models.TextField()
-    grade = models.IntegerField(default=0)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    question_text = models.TextField()
+    grade = models.IntegerField(default=50)
 
     class Meta:
-        ordering = ("lesson__order", "id")
+        ordering = ("id",)
 
     def __str__(self):
-        return self.question
+        return self.question_text
 
     def is_get_score(self, selected_ids):
         """Return True when the selected choices exactly match this question's correct answers."""
@@ -129,11 +129,11 @@ class Choice(models.Model):
     """A possible answer for a question."""
 
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
-    choice = models.TextField()
+    choice_text = models.TextField()
     is_correct = models.BooleanField(default=False)
 
     def __str__(self):
-        return self.choice
+        return self.choice_text
 
 
 class Submission(models.Model):
@@ -148,4 +148,4 @@ class Submission(models.Model):
     submitted_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.enrollment.user.username} — {self.enrollment.course.name} ({self.pk})"
+        return f"Submission {self.id} for Enrollment {self.enrollment.id}"

@@ -19,21 +19,20 @@ class ChoiceInline(admin.TabularInline):
 
 # Register your models here.
 class CourseAdmin(admin.ModelAdmin):
-    inlines = [LessonInline]
+    inlines = [LessonInline, QuestionInline]
     list_display = ('name', 'pub_date')
     list_filter = ['pub_date']
     search_fields = ['name', 'description']
 
 
 class LessonAdmin(admin.ModelAdmin):
-    list_display = ['title']
-    inlines = [QuestionInline]
+    list_display = ('title', 'course', 'order')
 
 
 class QuestionAdmin(admin.ModelAdmin):
-    list_display = ("question", "lesson", "grade")
-    list_filter = ("lesson__course",)
-    search_fields = ("question", "lesson__title", "lesson__course__name")
+    list_display = ("question_text", "course", "grade")
+    list_filter = ("course",)
+    search_fields = ("question_text", "course__name")
     inlines = [ChoiceInline]
 
 
