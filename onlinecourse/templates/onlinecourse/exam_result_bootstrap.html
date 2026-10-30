@@ -37,7 +37,7 @@
                     <p class="mb-0">Review the lessons and try again.</p>
                 </div>
             {% endif %}
-            <div class="score-number">{{ score }} / {{ total_score }} points</div>
+            <div class="score-number">{{ score }} / {{ possible }} points</div>
             <p class="text-muted mb-2">{{ grade|floatformat:1 }}% · Passing score: {{ passing_score_percent }}%</p>
             <div class="progress mx-auto" style="height:10px;max-width:440px" aria-label="Score">
                 <div class="progress-bar {% if passed %}bg-success{% else %}bg-warning{% endif %}" role="progressbar" style="width:{{ grade }}%" aria-valuenow="{{ grade }}" aria-valuemin="0" aria-valuemax="100"></div>
@@ -50,14 +50,14 @@
         <article class="card answer-card mb-3 {% if item.is_correct %}correct{% else %}incorrect{% endif %}">
             <div class="card-body p-4">
                 <div class="d-flex justify-content-between align-items-start">
-                    <h3 class="h6 mb-3">{{ forloop.counter }}. {{ item.question.content }}</h3>
+                    <h3 class="h6 mb-3">{{ forloop.counter }}. {{ item.question.question }}</h3>
                     {% if item.is_correct %}<span class="badge badge-success">Correct · +{{ item.question.grade }}</span>{% else %}<span class="badge badge-danger">Incorrect · 0</span>{% endif %}
                 </div>
                 <p class="mb-1"><strong>Your answer:</strong>
-                    {% if item.selected_choice %}{{ item.selected_choice.content }}{% else %}<span class="text-muted">Not answered</span>{% endif %}
+                    {% if item.selected_choice %}{{ item.selected_choice.choice }}{% else %}<span class="text-muted">Not answered</span>{% endif %}
                 </p>
                 <p class="mb-0"><strong>Correct answer{% if item.correct_choices|length != 1 %}s{% endif %}:</strong>
-                    {% for answer in item.correct_choices %}{{ answer.content }}{% if not forloop.last %}; {% endif %}{% empty %}<span class="text-muted">No correct answer configured</span>{% endfor %}
+                    {% for answer in item.correct_choices %}{{ answer.choice }}{% if not forloop.last %}; {% endif %}{% empty %}<span class="text-muted">No correct answer configured</span>{% endfor %}
                 </p>
             </div>
         </article>

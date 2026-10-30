@@ -25,22 +25,22 @@ class AssessmentTestData(TestCase):
             title='Views', order=1, course=self.course, content='Views handle requests.'
         )
         self.question_one = Question.objects.create(
-            lesson=self.lesson, content='Which is a Python list?', grade=2
+            lesson=self.lesson, question='Which is a Python list?', grade=2
         )
         self.correct_one = Choice.objects.create(
-            question=self.question_one, content='[1, 2, 3]', is_correct=True
+            question=self.question_one, choice='[1, 2, 3]', is_correct=True
         )
         self.wrong_one = Choice.objects.create(
-            question=self.question_one, content='{"a": 1}', is_correct=False
+            question=self.question_one, choice='{"a": 1}', is_correct=False
         )
         self.question_two = Question.objects.create(
-            lesson=self.second_lesson, content='Which field links model rows many-to-one?', grade=3
+            lesson=self.second_lesson, question='Which field links model rows many-to-one?', grade=3
         )
         self.correct_two = Choice.objects.create(
-            question=self.question_two, content='ForeignKey', is_correct=True
+            question=self.question_two, choice='ForeignKey', is_correct=True
         )
         self.wrong_two = Choice.objects.create(
-            question=self.question_two, content='ManyToManyField', is_correct=False
+            question=self.question_two, choice='ManyToManyField', is_correct=False
         )
         self.enrollment = Enrollment.objects.create(
             user=self.user, course=self.course, mode=Enrollment.HONOR
@@ -66,6 +66,11 @@ class AssessmentModelTests(AssessmentTestData):
         self.assertEqual(saved.enrollment, self.enrollment)
         self.assertCountEqual(list(saved.choices.all()), [self.correct_one, self.correct_two])
         self.assertEqual(saved.choices.count(), 2)
+
+    def test_question_score_method_requires_exact_correct_choices(self):
+        self.assertTrue(self.question_one.is_get_score([self.correct_one.id]))
+        self.assertFalse(self.question_one.is_get_score([self.wrong_one.id]))
+        self.assertFalse(self.question_one.is_get_score([self.correct_one.id, self.wrong_one.id]))
 
 
 class CoursePageTests(AssessmentTestData):
@@ -107,6 +112,8 @@ class AssessmentViewTests(AssessmentTestData):
         self.assertCountEqual(list(submission.choices.all()), [self.correct_one, self.correct_two])
         self.assertContains(response, 'Congratulations')
         self.assertContains(response, '5 / 5 points')
+        self.assertEqual(response.context['selected_ids'], [self.correct_one.id, self.correct_two.id])
+        self.assertEqual(response.context['possible'], 5)
         self.assertContains(response, '100.0%')
         self.assertContains(response, 'ForeignKey')
 

@@ -31,9 +31,9 @@ class LessonAdmin(admin.ModelAdmin):
 
 
 class QuestionAdmin(admin.ModelAdmin):
-    list_display = ("content", "lesson", "grade")
+    list_display = ("question", "lesson", "grade")
     list_filter = ("lesson__course",)
-    search_fields = ("content", "lesson__title", "lesson__course__name")
+    search_fields = ("question", "lesson__title", "lesson__course__name")
     inlines = [ChoiceInline]
 
 

@@ -80,9 +80,6 @@ class CourseDetailView(generic.DetailView):
         context = super().get_context_data(**kwargs)
         course = self.object
         user = self.request.user
-        context['lessons'] = course.lesson_set.prefetch_related(
-            'question_set__choice_set'
-        ).order_by('order', 'id')
         context['has_questions'] = Question.objects.filter(lesson__course=course).exists()
         context['is_enrolled'] = check_if_enrolled(user, course)
         return context
@@ -155,18 +152,21 @@ def show_exam_result(request, course_id, submission_id):
         .order_by('lesson__order', 'id')
         .prefetch_related('choice_set')
     )
-    selected_by_question = {
-        choice.question_id: choice
-        for choice in submission.choices.select_related('question')
-    }
+    selected_by_question = {}
+    for choice in submission.choices.filter(
+        question__lesson__course=course
+    ).select_related('question').order_by('id'):
+        selected_by_question.setdefault(choice.question_id, []).append(choice)
 
     question_results = []
     score = 0
-    total_score = sum(question.grade for question in questions)
+    possible = sum(question.grade for question in questions)
     for question in questions:
-        selected_choice = selected_by_question.get(question.id)
+        selected_question_choices = selected_by_question.get(question.id, [])
+        selected_choice = selected_question_choices[0] if selected_question_choices else None
         correct_choices = [choice for choice in question.choice_set.all() if choice.is_correct]
-        is_correct = bool(selected_choice and selected_choice.is_correct)
+        selected_question_ids = [choice.id for choice in selected_question_choices]
+        is_correct = question.is_get_score(selected_question_ids)
         if is_correct:
             score += question.grade
         question_results.append({
@@ -176,15 +176,22 @@ def show_exam_result(request, course_id, submission_id):
             'is_correct': is_correct,
         })
 
-    grade = round((score / total_score) * 100, 1) if total_score else 0
+    grade = round((score / possible) * 100, 1) if possible else 0
+    selected_ids = sorted(
+        choice.id
+        for choices in selected_by_question.values()
+        for choice in choices
+    )
     context = {
         'course': course,
         'submission': submission,
         'question_results': question_results,
         'score': score,
-        'total_score': total_score,
+        'possible': possible,
+        'total_score': possible,
         'grade': grade,
-        'passed': grade >= PASSING_SCORE_PERCENT and total_score > 0,
+        'selected_ids': selected_ids,
+        'passed': grade >= PASSING_SCORE_PERCENT and possible > 0,
         'passing_score_percent': PASSING_SCORE_PERCENT,
     }
     return render(request, 'onlinecourse/exam_result_bootstrap.html', context)

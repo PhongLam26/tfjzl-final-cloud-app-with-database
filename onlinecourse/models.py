@@ -99,25 +99,41 @@ class Question(models.Model):
     """A weighted multiple-choice question attached to one course lesson."""
 
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE)
-    content = models.TextField()
-    grade = models.PositiveIntegerField(default=1)
+    question = models.TextField()
+    grade = models.IntegerField(default=0)
 
     class Meta:
         ordering = ("lesson__order", "id")
 
     def __str__(self):
-        return self.content
+        return self.question
+
+    def is_get_score(self, selected_ids):
+        """Return True when the selected choices exactly match this question's correct answers."""
+        correct_ids = set(
+            self.choice_set.filter(is_correct=True).values_list('id', flat=True)
+        )
+        if not correct_ids:
+            return False
+        try:
+            submitted_ids = {int(choice_id) for choice_id in selected_ids}
+        except (TypeError, ValueError):
+            return False
+        selected_for_question = set(
+            self.choice_set.filter(id__in=submitted_ids).values_list('id', flat=True)
+        )
+        return selected_for_question == correct_ids
 
 
 class Choice(models.Model):
     """A possible answer for a question."""
 
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
-    content = models.CharField(max_length=500)
+    choice = models.TextField()
     is_correct = models.BooleanField(default=False)
 
     def __str__(self):
-        return self.content
+        return self.choice
 
 
 class Submission(models.Model):

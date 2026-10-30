@@ -72,16 +72,16 @@ class Command(BaseCommand):
             )
             lessons_by_order[order] = lesson
 
-        for lesson_order, content, grade, choice_specs in questions:
+        for lesson_order, question_text, grade, choice_specs in questions:
             question, _ = Question.objects.update_or_create(
                 lesson=lessons_by_order[lesson_order],
-                content=content,
+                question=question_text,
                 defaults={'grade': grade},
             )
-            for choice_content, is_correct in choice_specs:
+            for choice_text, is_correct in choice_specs:
                 Choice.objects.update_or_create(
                     question=question,
-                    content=choice_content,
+                    choice=choice_text,
                     defaults={'is_correct': is_correct},
                 )
 
